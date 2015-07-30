@@ -3,7 +3,7 @@ var thisUrl = document.URL;
 if(  thisUrl.indexOf('mail.google.com') >= 0
    ||thisUrl.indexOf('plus.google.com') >= 0)
   return;
-var filenamep = /(?=\w*\.mp3)|(?=\w*\.mp4)|(?=\w*\.m4a)|(?=\w*\.aac)|(?=\w*\_stream)/i;
+var filenamep = /(?=\w*\.mp3)|(?=\w*\.mp4)|(?=\w*\.m4a)|(?=\w*\.aac)/i;
 var imgURL_MP3 = chrome.extension.getURL("images/music32.png");
 var imgURL_AAC = chrome.extension.getURL("images/aac32.png");
 var imgURL_M4A = chrome.extension.getURL("images/m4a32.png");
@@ -11,7 +11,7 @@ var imgURL_MP4 = chrome.extension.getURL("images/mp432.png");
 var imgURLLeftA = chrome.extension.getURL("images/arrowl32.png");
 var imgURLRightA = chrome.extension.getURL("images/arrowr32.png");
 var divId = "music-pirate";
-if(!localStorage.piratePosition) localStorage.piratePosition = 'priate-left'
+if(!localStorage.piratePosition) localStorage.piratePosition = 'priate-left';
 var onMsg = chrome.runtime.onMessage || chrome.extension.onMessage || chrome.extension.onRequest;
 var requestQ = [];
 onMsg.addListener(
@@ -124,16 +124,50 @@ onMsg.addListener(
 	      filename = $('.sup span a').text();
 	    }
       } else if(thisUrl.indexOf('grooveshark.com') > 0) {
-        filename = $('#now-playing-metadata .song').text() + ' - ' + $('#now-playing-metadata .artist').text();
-        url = url + '?streamKey=' + request.requestBody.formData['streamKey'];
+          filename = $('#now-playing-metadata .song').text() + ' - ' + $('#now-playing-metadata .artist').text();
+          url = url + '?streamKey=' + request.requestBody.formData['streamKey'];
+      } else if(thisUrl.indexOf('thesixtyone.com') > 0) {
+          filename = $('#song_panel_title').text() + ' - ' + $('#song_panel_artist').text();
+      } else if(thisUrl.indexOf('luoo.net') > 0) {
+          if(thisUrl.indexOf('discover') > 0) {
+            filename = $('#lnTrackName').text();
+          } else if(thisUrl.indexOf('essay') > 0) {
+            filename = $('#luooPlayerPlaylist .track-name').text();
+          } else if(thisUrl.indexOf('single') > 0) {
+            filename = $('.jp-playlist-current .jp-playlist-current').text();
+          } else if(thisUrl.indexOf('music') > 0) {
+            filename = $('.luoo-player .track-name').text() + ' - ' + $('.luoo-player .artist').text();
+          }
       }
 	  
       if(!filename) {
         filename = filenamep.exec(url);
       } else {
-        filename = filename + '.' + request.format;
+        filename = $.trim(filename) + '.' + request.format;
       }
+      
+      // remain the old download code for failback
       $('#dlink').attr('download', filename).attr('title', filename).attr('href', url);
+	  
+      // chrome doesn't support download attribute for cross-site request, 
+      // so use the code below to work around
+      if (url !== window.currentMusicUrl) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'blob';
+
+        xhr.onload = function(e) {
+          var res = xhr.response;
+          var blob = new Blob([res], {type:"audio/mpeg"});
+
+          window.URL.revokeObjectURL(window.downloadUrl);
+          window.currentMusicUrl = url;
+          window.downloadUrl = window.URL.createObjectURL(blob);
+          document.getElementById('dlink').href = downloadUrl;
+        };
+        xhr.send();
+      }
+	  
       (function(deg){
         var degnow = 0;
         var ro = function(){
